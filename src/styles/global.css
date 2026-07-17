@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Lora", serif;
+  --font-body: "Lora", serif;
+
+  --color-cream: #fdf8f0;
+  --color-lavender: #cdb4db;
+  --color-lavender-dark: #9d84b7;
+  --color-coral: #ff8fa3;
+  --color-coral-dark: #e2637a;
+  --color-sage: #a3b18a;
+  --color-sage-dark: #7c8d63;
+  --color-marigold: #f4c76b;
+  --color-marigold-dark: #d9a53f;
+  --color-ink: #2b2438;
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+h1,
+h2,
+h3,
+h4,
+.font-display {
+  font-family: var(--font-display);
+}

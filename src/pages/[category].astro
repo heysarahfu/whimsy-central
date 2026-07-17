@@ -1,0 +1,32 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import CategoryHeader from '../components/CategoryHeader.astro';
+import ProductGrid from '../components/ProductGrid.astro';
+
+export async function getStaticPaths() {
+  const categories = await getCollection('categories');
+  return categories.map((category) => ({
+    params: { category: category.id },
+    props: { category },
+  }));
+}
+
+const { category } = Astro.props;
+
+const products = (
+  await getCollection(
+    'products',
+    (entry) => entry.data.category.id === category.id && !entry.data.draft
+  )
+).sort((a, b) => b.data.addedDate.valueOf() - a.data.addedDate.valueOf());
+---
+
+<BaseLayout title={category.data.label} description={category.data.description}>
+  <CategoryHeader
+    emoji={category.data.emoji}
+    label={category.data.label}
+    description={category.data.description}
+  />
+  <ProductGrid products={products} />
+</BaseLayout>

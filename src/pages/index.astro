@@ -1,0 +1,54 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ProductGrid from '../components/ProductGrid.astro';
+
+const categories = (await getCollection('categories')).sort(
+  (a, b) => a.data.sortOrder - b.data.sortOrder
+);
+
+const featured = (
+  await getCollection('products', (entry) => !entry.data.draft)
+)
+  .sort((a, b) => b.data.addedDate.valueOf() - a.data.addedDate.valueOf())
+  .slice(0, 6);
+---
+
+<BaseLayout title="Home">
+  <section class="max-w-5xl mx-auto px-4 sm:px-6 pt-14 pb-10 text-center">
+    <h1 class="font-display text-4xl sm:text-6xl font-bold text-ink">
+      A little bit of wonder,<br class="hidden sm:block" /> shipped to your door.
+    </h1>
+    <p class="mt-4 text-lg text-ink/70 max-w-xl mx-auto">
+      We hunt down the delightfully useless, the quietly beautiful, and the
+      books worth losing an afternoon to — then send you straight to Amazon
+      to get them.
+    </p>
+    <p class="mt-3 text-sm text-ink/50">
+      As an Amazon Associate, Whimsy Central earns from qualifying purchases.
+      <a href="/disclosure" class="underline hover:text-coral-dark">Learn more</a>.
+    </p>
+  </section>
+
+  <section class="max-w-5xl mx-auto px-4 sm:px-6 pb-12 grid grid-cols-1 sm:grid-cols-3 gap-5">
+    {
+      categories.map((category) => (
+        <a
+          href={`/${category.id}`}
+          class="bg-white rounded-3xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 p-6 text-center"
+        >
+          <div class="text-4xl">{category.data.emoji}</div>
+          <h2 class="font-display text-xl font-semibold mt-2 text-ink">
+            {category.data.label}
+          </h2>
+          <p class="text-sm text-ink/60 mt-1">{category.data.description}</p>
+        </a>
+      ))
+    }
+  </section>
+
+  <h2 class="font-display text-2xl sm:text-3xl font-bold text-ink text-center mb-6">
+    Freshest Finds
+  </h2>
+  <ProductGrid products={featured} />
+</BaseLayout>

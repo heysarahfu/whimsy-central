@@ -1,0 +1,20 @@
+---
+import { getCollection } from 'astro:content';
+
+const categories = (await getCollection('categories')).sort(
+  (a, b) => a.data.sortOrder - b.data.sortOrder
+);
+---
+
+<nav class="flex flex-wrap gap-2 sm:gap-3">
+  {
+    categories.map((category) => (
+      <a
+        href={`/${category.id}`}
+        class="font-display font-semibold text-sm sm:text-base px-3 py-1.5 rounded-full bg-white/70 hover:bg-lavender hover:text-white transition-colors"
+      >
+        {category.data.emoji} {category.data.label}
+      </a>
+    ))
+  }
+</nav>

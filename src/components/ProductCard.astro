@@ -1,0 +1,56 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import AffiliateDisclosureNote from './AffiliateDisclosureNote.astro';
+
+interface Props {
+  product: CollectionEntry<'products'>;
+}
+
+const { product } = Astro.props;
+const { title, price, imageUrl, affiliateUrl, rating } = product.data;
+
+const excerpt = product.body
+  ?.replace(/^---[\s\S]*?---/, '')
+  .replace(/[_*#>`]/g, '')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .slice(0, 140);
+---
+
+<article class="bg-white rounded-3xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden flex flex-col">
+  <img
+    src={imageUrl}
+    alt={title}
+    loading="lazy"
+    width="600"
+    height="600"
+    class="w-full aspect-square object-cover"
+  />
+  <div class="p-5 flex flex-col flex-1">
+    <h3 class="font-display text-lg font-semibold text-ink">{title}</h3>
+
+    <div class="flex items-center gap-2 mt-1 text-sm text-ink/60">
+      <span class="font-semibold text-sage-dark">${price.toFixed(2)}</span>
+      {
+        rating && (
+          <span aria-label={`${rating} out of 5 delight rating`}>
+            {'★'.repeat(rating)}
+            <span class="text-ink/20">{'★'.repeat(5 - rating)}</span>
+          </span>
+        )
+      }
+    </div>
+
+    {excerpt && <p class="mt-2 text-sm text-ink/70 flex-1">{excerpt}{excerpt.length === 140 ? '…' : ''}</p>}
+
+    <a
+      href={affiliateUrl}
+      target="_blank"
+      rel="nofollow sponsored noopener noreferrer"
+      class="mt-4 inline-block text-center font-display font-semibold bg-coral hover:bg-coral-dark text-white rounded-full px-4 py-2 transition-colors"
+    >
+      View on Amazon
+    </a>
+    <AffiliateDisclosureNote />
+  </div>
+</article>

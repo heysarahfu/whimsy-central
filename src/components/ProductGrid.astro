@@ -1,0 +1,22 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import ProductCard from './ProductCard.astro';
+
+interface Props {
+  products: CollectionEntry<'products'>[];
+}
+
+const { products } = Astro.props;
+---
+
+{
+  products.length === 0 ? (
+    <p class="text-center text-ink/60 py-16">
+      More whimsical finds coming soon! ✨
+    </p>
+  ) : (
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 pb-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {products.map((product) => <ProductCard product={product} />)}
+    </div>
+  )
+}
