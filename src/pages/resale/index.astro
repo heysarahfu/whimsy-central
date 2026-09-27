@@ -6,7 +6,7 @@ import { PLATFORMS } from '../../lib/platforms';
 <ResaleLayout title="New item">
   <h1 class="font-display text-2xl font-bold">New item</h1>
   <p class="text-ink/70 mt-1">
-    Snap a photo and get a price plus listing drafts for{' '}
+    Add photos of an item and get a price plus listing drafts for{' '}
     {PLATFORMS.map((p) => p.name).join(', ')}.
   </p>
 
@@ -15,20 +15,21 @@ import { PLATFORMS } from '../../lib/platforms';
       id="dropzone"
       class="block cursor-pointer rounded-lg border-2 border-dashed border-ink/20 bg-white/60 p-6 text-center transition-colors hover:border-coral"
     >
-      <span class="block font-semibold">Add a photo</span>
+      <span class="block font-semibold">Add photos of one item</span>
       <span class="block text-sm text-ink/60 mt-1">
-        Drag one in from the Photos app, paste it (⌘V), or click to choose a file.
+        Up to 6, e.g. front, back and tag. Drag them in from the Photos app, paste (⌘V),
+        or click to choose.
       </span>
-      <input id="photo" type="file" name="photo" accept="image/*" required class="sr-only" />
-      <img id="preview" alt="" class="hidden mx-auto mt-4 max-h-72 rounded border border-ink/10" />
+      <input id="photo" type="file" accept="image/*" multiple class="sr-only" />
     </label>
+    <ul id="thumbs" class="flex flex-wrap gap-2"></ul>
     <label class="block">
       <span class="text-sm font-semibold">Notes (optional)</span>
       <textarea
         name="notes"
         rows="3"
         maxlength="1000"
-        placeholder="Size, where you got it, flaws the photo doesn't show…"
+        placeholder="Size, where you got it, flaws the photos don't show…"
         class="mt-1 w-full rounded border border-ink/20 px-3 py-2"></textarea>
     </label>
     <button id="submit" class="rounded-full bg-coral hover:bg-coral-dark text-white font-semibold px-6 py-2.5 disabled:opacity-50">
@@ -39,14 +40,20 @@ import { PLATFORMS } from '../../lib/platforms';
 </ResaleLayout>
 
 <script>
+  const MAX_PHOTOS = 6;
   // Phone photos are often larger than Claude's 5 MB image limit and far
   // bigger than it needs, so shrink them to ~1568px JPEG before uploading.
   const MAX_EDGE = 1568;
+  const SENDABLE = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
   const form = document.getElementById('upload') as HTMLFormElement;
   const input = document.getElementById('photo') as HTMLInputElement;
-  const preview = document.getElementById('preview') as HTMLImageElement;
+  const dropzone = document.getElementById('dropzone') as HTMLElement;
+  const thumbs = document.getElementById('thumbs') as HTMLUListElement;
   const submit = document.getElementById('submit') as HTMLButtonElement;
   const status = document.getElementById('status') as HTMLElement;
+
+  let photos: File[] = [];
 
   async function shrink(file: File): Promise<Blob> {
     const bitmap = await createImageBitmap(file);
@@ -60,30 +67,48 @@ import { PLATFORMS } from '../../lib/platforms';
     );
   }
 
-  const dropzone = document.getElementById('dropzone') as HTMLElement;
-
-  function show(file: File) {
-    preview.src = URL.createObjectURL(file);
-    preview.classList.remove('hidden');
-    status.textContent = '';
+  function render() {
+    thumbs.replaceChildren(
+      ...photos.map((file, i) => {
+        const li = document.createElement('li');
+        li.className = 'relative';
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        img.alt = `Photo ${i + 1}`;
+        img.className = 'w-20 h-20 object-cover rounded border border-ink/10';
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = '×';
+        remove.setAttribute('aria-label', `Remove photo ${i + 1}`);
+        remove.className =
+          'absolute -top-2 -right-2 w-6 h-6 rounded-full bg-ink text-cream text-sm leading-6';
+        remove.addEventListener('click', () => {
+          photos.splice(i, 1);
+          render();
+        });
+        li.appendChild(img);
+        li.appendChild(remove);
+        return li;
+      }),
+    );
   }
 
-  // Put a dragged or pasted image into the file input, so the form treats it
-  // exactly like a picked file.
-  function useFile(file: File | undefined) {
-    if (!file || !file.type.startsWith('image/')) {
+  function addPhotos(files: Iterable<File>) {
+    const images = [...files].filter((f) => f.type.startsWith('image/'));
+    if (images.length === 0) {
       status.textContent = 'That doesn’t look like a photo.';
       return;
     }
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    input.files = dt.files;
-    show(file);
+    const room = MAX_PHOTOS - photos.length;
+    photos.push(...images.slice(0, room));
+    status.textContent =
+      images.length > room ? `Only ${MAX_PHOTOS} photos per item, so some were left out.` : '';
+    render();
   }
 
   input.addEventListener('change', () => {
-    const file = input.files?.[0];
-    if (file) show(file);
+    if (input.files) addPhotos(input.files);
+    input.value = ''; // so picking the same file again still fires
   });
 
   // Dragging from Photos can land anywhere on the page, not just the box.
@@ -102,36 +127,41 @@ import { PLATFORMS } from '../../lib/platforms';
     e.preventDefault();
     dragDepth = 0;
     highlight(false);
-    useFile(e.dataTransfer?.files[0]);
+    if (e.dataTransfer) addPhotos(e.dataTransfer.files);
   });
 
   document.addEventListener('paste', (e) => {
-    const file = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'));
-    if (file) {
+    const files = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith('image/'));
+    if (files.length) {
       e.preventDefault();
-      useFile(file);
+      addPhotos(files);
     }
   });
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const file = input.files?.[0];
-    if (!file) return;
+    if (photos.length === 0) {
+      status.textContent = 'Add at least one photo first.';
+      return;
+    }
     submit.disabled = true;
-    status.textContent = 'Looking at your photo… this can take up to a minute.';
+    status.textContent = `Looking at ${photos.length === 1 ? 'your photo' : `${photos.length} photos`}… this can take up to a minute.`;
 
     try {
       const data = new FormData(form);
-      try {
-        data.set('photo', await shrink(file), 'photo.jpg');
-      } catch {
-        // The browser couldn't read it (e.g. HEIC outside Safari). JPEG/PNG/
-        // WebP/GIF can still go up as-is; anything else can't.
-        if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
-          status.textContent =
-            'This browser can’t read that photo format. Try Safari, or export it from Photos as a JPEG.';
-          submit.disabled = false;
-          return;
+      for (const file of photos) {
+        try {
+          data.append('photo', await shrink(file), 'photo.jpg');
+        } catch {
+          // The browser couldn't read it (e.g. HEIC outside Safari). JPEG/PNG/
+          // WebP/GIF can still go up as-is; anything else can't.
+          if (!SENDABLE.includes(file.type)) {
+            status.textContent =
+              'This browser can’t read one of those photo formats. Try Safari, or export from Photos as JPEG.';
+            submit.disabled = false;
+            return;
+          }
+          data.append('photo', file);
         }
       }
       const res = await fetch(form.action, { method: 'POST', body: data });

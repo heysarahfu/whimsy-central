@@ -32,6 +32,11 @@ export type IdentifyResult = z.infer<typeof Identification>;
 
 export type ImageMediaType = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
 
+export interface ItemImage {
+  base64: string;
+  mediaType: ImageMediaType;
+}
+
 function systemPrompt(): string {
   const rules = PLATFORMS.map(
     (p) =>
@@ -41,7 +46,9 @@ function systemPrompt(): string {
 
   return `You help a casual reseller price and list secondhand items in the US.
 
-From the photo (and any notes from the seller), identify the item, judge its condition from what is visible, and estimate a realistic used resale price in USD: what it actually sells for secondhand, not its original retail price. If you can't tell the brand or model, say so and lower your confidence rather than guessing.
+You may get several photos of the same item, such as the front, the back, and a close-up of the label or tag. Read labels and tags carefully: they are the best source for brand, size, and material, so use what they say over guesses from the other photos.
+
+From the photos (and any notes from the seller), identify the item, judge its condition from what is visible, and estimate a realistic used resale price in USD: what it actually sells for secondhand, not its original retail price. If you can't tell the brand or model, say so and lower your confidence rather than guessing.
 
 Then write one listing draft per platform:
 ${rules}
@@ -50,8 +57,7 @@ Describe only what can be seen or what the seller told you. Never invent sizes, 
 }
 
 export async function identifyItem(
-  imageBase64: string,
-  mediaType: ImageMediaType,
+  images: ItemImage[],
   sellerNotes: string,
 ): Promise<IdentifyResult> {
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
@@ -66,7 +72,13 @@ export async function identifyItem(
       {
         role: 'user',
         content: [
-          { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } },
+          ...images.flatMap((img, i) => [
+            { type: 'text' as const, text: `Photo ${i + 1} of ${images.length}:` },
+            {
+              type: 'image' as const,
+              source: { type: 'base64' as const, media_type: img.mediaType, data: img.base64 },
+            },
+          ]),
           {
             type: 'text',
             text: sellerNotes.trim()
@@ -80,7 +92,7 @@ export async function identifyItem(
   });
 
   if (response.stop_reason === 'refusal') {
-    throw new Error('Claude declined to identify this photo. Try a different photo.');
+    throw new Error('Claude declined to identify these photos. Try different photos.');
   }
   const result = response.parsed_output;
   if (!result) {

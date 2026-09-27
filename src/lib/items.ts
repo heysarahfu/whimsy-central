@@ -7,7 +7,8 @@ export type Status = (typeof STATUSES)[number];
 export interface ItemRow {
   id: number;
   created_at: string;
-  photo_key: string;
+  photo_key: string; // cover photo
+  photo_keys: string | null; // JSON array of every photo, cover first
   brand: string | null;
   item_name: string;
   category: string | null;
@@ -25,18 +26,24 @@ export interface ItemRow {
   sold_at: string | null;
 }
 
+export function photoKeys(item: ItemRow): string[] {
+  const keys = item.photo_keys ? (JSON.parse(item.photo_keys) as string[]) : [];
+  return keys.length ? keys : [item.photo_key];
+}
+
 export async function insertItem(
-  photoKey: string,
+  photoKeys: string[],
   notes: string,
   r: IdentifyResult,
 ): Promise<number> {
   const row = await env.DB.prepare(
-    `INSERT INTO items (photo_key, brand, item_name, category, condition, notes,
+    `INSERT INTO items (photo_key, photo_keys, brand, item_name, category, condition, notes,
        price_low, price_high, suggested_price, price_reasoning, drafts_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
   )
     .bind(
-      photoKey,
+      photoKeys[0],
+      JSON.stringify(photoKeys),
       r.brand,
       r.item_name,
       r.category,
@@ -85,7 +92,7 @@ export async function updateItem(
 export async function deleteItem(id: number) {
   const item = await getItem(id);
   if (!item) return;
-  await env.PHOTOS.delete(item.photo_key);
+  await env.PHOTOS.delete(photoKeys(item));
   await env.DB.prepare('DELETE FROM items WHERE id = ?').bind(id).run();
 }
 

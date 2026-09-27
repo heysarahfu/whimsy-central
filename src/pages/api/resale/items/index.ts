@@ -2,11 +2,12 @@
 import type { APIRoute } from 'astro';
 import Anthropic from '@anthropic-ai/sdk';
 import { env } from 'cloudflare:workers';
-import { identifyItem, type ImageMediaType } from '../../../../lib/identify';
+import { identifyItem, type ImageMediaType, type ItemImage } from '../../../../lib/identify';
 import { insertItem } from '../../../../lib/items';
 
 const ALLOWED: ImageMediaType[] = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_BYTES = 5 * 1024 * 1024; // Claude's per-image limit
+const MAX_PHOTOS = 6;
 
 function toBase64(bytes: Uint8Array): string {
   let binary = '';
@@ -18,31 +19,46 @@ function toBase64(bytes: Uint8Array): string {
 
 export const POST: APIRoute = async ({ request, redirect }) => {
   const form = await request.formData();
-  const photo = form.get('photo');
+  const photos = form.getAll('photo').filter((p): p is File => p instanceof File && p.size > 0);
   const notes = String(form.get('notes') ?? '').slice(0, 1000);
 
-  if (!(photo instanceof File) || photo.size === 0) {
-    return new Response('Please choose a photo.', { status: 400 });
+  if (photos.length === 0) {
+    return new Response('Please add at least one photo.', { status: 400 });
   }
-  const mediaType = photo.type as ImageMediaType;
-  if (!ALLOWED.includes(mediaType)) {
-    return new Response('Photos must be JPEG, PNG, WebP or GIF.', { status: 400 });
+  if (photos.length > MAX_PHOTOS) {
+    return new Response(`Up to ${MAX_PHOTOS} photos per item, please.`, { status: 400 });
   }
-  if (photo.size > MAX_BYTES) {
-    return new Response('That photo is over 5 MB. Try a smaller one.', { status: 400 });
+  for (const photo of photos) {
+    if (!ALLOWED.includes(photo.type as ImageMediaType)) {
+      return new Response('Photos must be JPEG, PNG, WebP or GIF.', { status: 400 });
+    }
+    if (photo.size > MAX_BYTES) {
+      return new Response('One of the photos is over 5 MB. Try a smaller one.', { status: 400 });
+    }
   }
 
-  const bytes = new Uint8Array(await photo.arrayBuffer());
-  const ext = mediaType.split('/')[1];
-  const key = `items/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
-  await env.PHOTOS.put(key, bytes, { httpMetadata: { contentType: mediaType } });
+  const folder = `items/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}`;
+  const images: (ItemImage & { key: string; bytes: Uint8Array })[] = await Promise.all(
+    photos.map(async (photo, i) => {
+      const mediaType = photo.type as ImageMediaType;
+      const bytes = new Uint8Array(await photo.arrayBuffer());
+      const key = `${folder}/${i + 1}.${mediaType.split('/')[1]}`;
+      return { key, bytes, mediaType, base64: toBase64(bytes) };
+    }),
+  );
+  const keys = images.map((img) => img.key);
+  await Promise.all(
+    images.map((img) =>
+      env.PHOTOS.put(img.key, img.bytes, { httpMetadata: { contentType: img.mediaType } }),
+    ),
+  );
 
   try {
-    const result = await identifyItem(toBase64(bytes), mediaType, notes);
-    const id = await insertItem(key, notes, result);
+    const result = await identifyItem(images, notes);
+    const id = await insertItem(keys, notes, result);
     return redirect(`/resale/item/${id}`, 303);
   } catch (err) {
-    await env.PHOTOS.delete(key);
+    await env.PHOTOS.delete(keys);
     console.error('identify failed', err);
     let message = 'Something went wrong. Please try again.';
     if (err instanceof Anthropic.AuthenticationError) {

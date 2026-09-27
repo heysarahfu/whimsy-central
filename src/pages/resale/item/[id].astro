@@ -1,23 +1,36 @@
 ---
 import ResaleLayout from '../../../layouts/ResaleLayout.astro';
-import { STATUSES, getItem, money } from '../../../lib/items';
+import { STATUSES, getItem, money, photoKeys } from '../../../lib/items';
 import { PLATFORMS, estimatePayout } from '../../../lib/platforms';
 
 const id = Number(Astro.params.id);
 const item = Number.isInteger(id) ? await getItem(id) : null;
 if (!item) return new Response('Item not found', { status: 404 });
 
+const photos = photoKeys(item);
 const drafts: { platform: string; title: string; description: string }[] = JSON.parse(item.drafts_json);
 const price = item.listed_price ?? item.suggested_price ?? 0;
 ---
 
 <ResaleLayout title={item.item_name}>
   <div class="grid sm:grid-cols-[200px_1fr] gap-6">
-    <img
-      src={`/api/resale/photo/${item.photo_key}`}
-      alt={item.item_name}
-      class="w-full rounded border border-ink/10"
-    />
+    <div>
+      <img
+        id="main-photo"
+        src={`/api/resale/photo/${photos[0]}`}
+        alt={item.item_name}
+        class="w-full rounded border border-ink/10"
+      />
+      {photos.length > 1 && (
+        <div class="mt-2 flex gap-2">
+          {photos.map((key, i) => (
+            <button type="button" class="thumb" data-src={`/api/resale/photo/${key}`} aria-label={`Show photo ${i + 1}`}>
+              <img src={`/api/resale/photo/${key}`} alt="" loading="lazy" class="w-12 h-12 object-cover rounded border border-ink/10" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
     <div>
       <h1 class="font-display text-2xl font-bold">{item.item_name}</h1>
       <p class="text-ink/70">
@@ -86,6 +99,11 @@ const price = item.listed_price ?? item.suggested_price ?? 0;
 </ResaleLayout>
 
 <script>
+  const main = document.getElementById('main-photo') as HTMLImageElement;
+  document.querySelectorAll<HTMLButtonElement>('button.thumb').forEach((btn) => {
+    btn.addEventListener('click', () => (main.src = btn.dataset.src!));
+  });
+
   document.querySelectorAll<HTMLButtonElement>('button.copy').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const src = btn.parentElement?.querySelector('[data-copy-src]');
