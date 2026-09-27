@@ -4,9 +4,12 @@
   // Personal Cloudflare account. A CLOUDFLARE_ACCOUNT_ID environment variable
   // would override this, so check `npx wrangler whoami` if in doubt.
   "account_id": "d54678b5ffd857842f2a8e38b4875ed1",
+  // No not_found_handling here: with it set, Cloudflare answers browser page
+  // loads that don't match a static file with the 404 page and never runs
+  // the Worker, so server-rendered routes like /resale would be unreachable.
+  // Astro renders the 404 page itself for unknown paths.
   "assets": {
-    "directory": "./dist",
-    "not_found_handling": "404-page"
+    "directory": "./dist"
   },
   "d1_databases": [
     {
