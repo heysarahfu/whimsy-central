@@ -1,15 +1,18 @@
 // Sends an item photo to Claude and gets back an identification, a price
 // range, and a listing draft for each platform.
 import Anthropic from '@anthropic-ai/sdk';
-import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
+import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
 import { env } from 'cloudflare:workers';
 import { PLATFORMS, fitToLimits, type PlatformId } from './platforms';
 
 const MODEL = 'claude-opus-5';
 
+// Plain strings rather than z.enum: the SDK can't send enum constraints in
+// the output schema, so an off-list value would fail validation afterwards.
+// Values are normalised below instead.
 const Draft = z.object({
-  platform: z.enum(['facebook', 'poshmark', 'ebay']),
+  platform: z.string().describe('One of: facebook, poshmark, ebay'),
   title: z.string(),
   description: z.string(),
 });
@@ -18,9 +21,11 @@ const Identification = z.object({
   item_name: z.string().describe('What the item is, specific enough to search for'),
   brand: z.string().nullable().describe('Brand or maker, or null if not identifiable'),
   category: z.string(),
-  condition: z.enum(['new with tags', 'new without tags', 'like new', 'good', 'fair', 'poor']),
+  condition: z
+    .string()
+    .describe('One of: new with tags, new without tags, like new, good, fair, poor'),
   condition_notes: z.string().describe('Visible wear, flaws, or missing parts'),
-  confidence: z.enum(['high', 'medium', 'low']),
+  confidence: z.string().describe('One of: high, medium, low'),
   price_low: z.number(),
   price_high: z.number(),
   suggested_price: z.number(),
@@ -62,11 +67,9 @@ export async function identifyItem(
 ): Promise<IdentifyResult> {
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
-  const response = await client.beta.messages.parse({
+  const response = await client.messages.parse({
     model: MODEL,
     max_tokens: 16000,
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
     system: systemPrompt(),
     messages: [
       {
@@ -88,7 +91,7 @@ export async function identifyItem(
         ],
       },
     ],
-    output_config: { format: betaZodOutputFormat(Identification) },
+    output_config: { format: zodOutputFormat(Identification) },
   });
 
   if (response.stop_reason === 'refusal') {
@@ -101,7 +104,7 @@ export async function identifyItem(
 
   // Keep exactly one draft per platform, trimmed to its limits.
   const drafts = PLATFORMS.map((p) => {
-    const d = result.drafts.find((x) => x.platform === p.id) ?? {
+    const d = result.drafts.find((x) => x.platform.trim().toLowerCase() === p.id) ?? {
       platform: p.id as PlatformId,
       title: result.item_name,
       description: '',
@@ -109,5 +112,10 @@ export async function identifyItem(
     return { platform: p.id, ...fitToLimits(p, d.title, d.description) };
   });
 
-  return { ...result, drafts };
+  return {
+    ...result,
+    condition: result.condition.trim().toLowerCase(),
+    confidence: result.confidence.trim().toLowerCase(),
+    drafts,
+  };
 }

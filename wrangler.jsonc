@@ -11,6 +11,8 @@
   "assets": {
     "directory": "./dist"
   },
+  // Keeps Worker logs (including errors) viewable in the Cloudflare dashboard.
+  "observability": { "enabled": true },
   "d1_databases": [
     {
       "binding": "DB",

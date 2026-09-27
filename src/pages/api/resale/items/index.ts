@@ -66,7 +66,9 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     } else if (err instanceof Anthropic.RateLimitError) {
       message = 'Claude is busy right now. Wait a minute and try again.';
     } else if (err instanceof Anthropic.APIError) {
-      message = `Claude couldn’t process that photo (error ${err.status}). Please try again.`;
+      // Include the API's own explanation so problems can be diagnosed.
+      const detail = (err.error as { error?: { message?: string } } | undefined)?.error?.message;
+      message = `Claude couldn’t process the photos (error ${err.status}${detail ? `: ${detail}` : ''}).`;
     } else if (err instanceof Error) {
       message = err.message;
     }
