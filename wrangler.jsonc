@@ -1,8 +1,29 @@
 {
   "name": "whimsy-central",
   "compatibility_date": "2026-07-17",
+  // Personal Cloudflare account. A CLOUDFLARE_ACCOUNT_ID environment variable
+  // would override this, so check `npx wrangler whoami` if in doubt.
+  "account_id": "d54678b5ffd857842f2a8e38b4875ed1",
   "assets": {
     "directory": "./dist",
     "not_found_handling": "404-page"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "whimsy-central-resale",
+      "database_id": "a50d0a50-3a89-48f6-951a-7cb85a3142cc",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "PHOTOS",
+      "bucket_name": "whimsy-central-resale-photos"
+    }
+  ]
+  // Secrets (set with `wrangler secret put`, never committed):
+  //   RESALE_PASSWORD    – the login password for /resale
+  //   SESSION_SECRET     – random string used to sign the login cookie
+  //   ANTHROPIC_API_KEY  – used by the identify step
 }

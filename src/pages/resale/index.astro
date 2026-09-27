@@ -1,0 +1,97 @@
+---
+import ResaleLayout from '../../layouts/ResaleLayout.astro';
+import { PLATFORMS } from '../../lib/platforms';
+---
+
+<ResaleLayout title="New item">
+  <h1 class="font-display text-2xl font-bold">New item</h1>
+  <p class="text-ink/70 mt-1">
+    Snap a photo and get a price plus listing drafts for
+    {PLATFORMS.map((p) => p.name).join(', ')}.
+  </p>
+
+  <form id="upload" method="post" action="/api/resale/items" enctype="multipart/form-data" class="mt-6 space-y-4">
+    <label class="block">
+      <span class="text-sm font-semibold">Photo</span>
+      <input
+        id="photo"
+        type="file"
+        name="photo"
+        accept="image/*"
+        capture="environment"
+        required
+        class="mt-1 block w-full text-sm"
+      />
+    </label>
+    <img id="preview" alt="" class="hidden max-h-72 rounded border border-ink/10" />
+    <label class="block">
+      <span class="text-sm font-semibold">Notes (optional)</span>
+      <textarea
+        name="notes"
+        rows="3"
+        maxlength="1000"
+        placeholder="Size, where you got it, flaws the photo doesn't show…"
+        class="mt-1 w-full rounded border border-ink/20 px-3 py-2"></textarea>
+    </label>
+    <button id="submit" class="rounded-full bg-coral hover:bg-coral-dark text-white font-semibold px-6 py-2.5 disabled:opacity-50">
+      Identify and price
+    </button>
+    <p id="status" class="text-sm text-ink/70" role="status"></p>
+  </form>
+</ResaleLayout>
+
+<script>
+  // Phone photos are often larger than Claude's 5 MB image limit and far
+  // bigger than it needs, so shrink them to ~1568px JPEG before uploading.
+  const MAX_EDGE = 1568;
+  const form = document.getElementById('upload') as HTMLFormElement;
+  const input = document.getElementById('photo') as HTMLInputElement;
+  const preview = document.getElementById('preview') as HTMLImageElement;
+  const submit = document.getElementById('submit') as HTMLButtonElement;
+  const status = document.getElementById('status') as HTMLElement;
+
+  async function shrink(file: File): Promise<Blob> {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    return new Promise((resolve, reject) =>
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('resize failed'))), 'image/jpeg', 0.85),
+    );
+  }
+
+  input.addEventListener('change', () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    preview.src = URL.createObjectURL(file);
+    preview.classList.remove('hidden');
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const file = input.files?.[0];
+    if (!file) return;
+    submit.disabled = true;
+    status.textContent = 'Looking at your photo… this can take up to a minute.';
+
+    try {
+      const data = new FormData(form);
+      try {
+        data.set('photo', await shrink(file), 'photo.jpg');
+      } catch {
+        // Some formats (e.g. HEIC on some browsers) can't be decoded; send as-is.
+      }
+      const res = await fetch(form.action, { method: 'POST', body: data });
+      if (res.redirected) {
+        window.location.href = res.url;
+        return;
+      }
+      status.textContent = await res.text();
+    } catch {
+      status.textContent = 'Upload failed. Check your connection and try again.';
+    }
+    submit.disabled = false;
+  });
+</script>
