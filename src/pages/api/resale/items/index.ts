@@ -1,5 +1,6 @@
 // Upload a photo: store it, have Claude identify and price it, save the item.
 import type { APIRoute } from 'astro';
+import Anthropic from '@anthropic-ai/sdk';
 import { env } from 'cloudflare:workers';
 import { identifyItem, type ImageMediaType } from '../../../../lib/identify';
 import { insertItem } from '../../../../lib/items';
@@ -43,7 +44,16 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   } catch (err) {
     await env.PHOTOS.delete(key);
     console.error('identify failed', err);
-    const message = err instanceof Error ? err.message : 'Something went wrong.';
+    let message = 'Something went wrong. Please try again.';
+    if (err instanceof Anthropic.AuthenticationError) {
+      message = 'The Claude API key isn’t set up correctly (check the ANTHROPIC_API_KEY secret).';
+    } else if (err instanceof Anthropic.RateLimitError) {
+      message = 'Claude is busy right now. Wait a minute and try again.';
+    } else if (err instanceof Anthropic.APIError) {
+      message = `Claude couldn’t process that photo (error ${err.status}). Please try again.`;
+    } else if (err instanceof Error) {
+      message = err.message;
+    }
     return new Response(message, { status: 502 });
   }
 };

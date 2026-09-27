@@ -6,24 +6,22 @@ import { PLATFORMS } from '../../lib/platforms';
 <ResaleLayout title="New item">
   <h1 class="font-display text-2xl font-bold">New item</h1>
   <p class="text-ink/70 mt-1">
-    Snap a photo and get a price plus listing drafts for
+    Snap a photo and get a price plus listing drafts for{' '}
     {PLATFORMS.map((p) => p.name).join(', ')}.
   </p>
 
   <form id="upload" method="post" action="/api/resale/items" enctype="multipart/form-data" class="mt-6 space-y-4">
-    <label class="block">
-      <span class="text-sm font-semibold">Photo</span>
-      <input
-        id="photo"
-        type="file"
-        name="photo"
-        accept="image/*"
-        capture="environment"
-        required
-        class="mt-1 block w-full text-sm"
-      />
+    <label
+      id="dropzone"
+      class="block cursor-pointer rounded-lg border-2 border-dashed border-ink/20 bg-white/60 p-6 text-center transition-colors hover:border-coral"
+    >
+      <span class="block font-semibold">Add a photo</span>
+      <span class="block text-sm text-ink/60 mt-1">
+        Drag one in from the Photos app, paste it (⌘V), or click to choose a file.
+      </span>
+      <input id="photo" type="file" name="photo" accept="image/*" required class="sr-only" />
+      <img id="preview" alt="" class="hidden mx-auto mt-4 max-h-72 rounded border border-ink/10" />
     </label>
-    <img id="preview" alt="" class="hidden max-h-72 rounded border border-ink/10" />
     <label class="block">
       <span class="text-sm font-semibold">Notes (optional)</span>
       <textarea
@@ -62,11 +60,57 @@ import { PLATFORMS } from '../../lib/platforms';
     );
   }
 
-  input.addEventListener('change', () => {
-    const file = input.files?.[0];
-    if (!file) return;
+  const dropzone = document.getElementById('dropzone') as HTMLElement;
+
+  function show(file: File) {
     preview.src = URL.createObjectURL(file);
     preview.classList.remove('hidden');
+    status.textContent = '';
+  }
+
+  // Put a dragged or pasted image into the file input, so the form treats it
+  // exactly like a picked file.
+  function useFile(file: File | undefined) {
+    if (!file || !file.type.startsWith('image/')) {
+      status.textContent = 'That doesn’t look like a photo.';
+      return;
+    }
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    show(file);
+  }
+
+  input.addEventListener('change', () => {
+    const file = input.files?.[0];
+    if (file) show(file);
+  });
+
+  // Dragging from Photos can land anywhere on the page, not just the box.
+  let dragDepth = 0;
+  const highlight = (on: boolean) => dropzone.classList.toggle('border-coral', on);
+  document.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    dragDepth++;
+    highlight(true);
+  });
+  document.addEventListener('dragleave', () => {
+    if (--dragDepth <= 0) highlight(false);
+  });
+  document.addEventListener('dragover', (e) => e.preventDefault());
+  document.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragDepth = 0;
+    highlight(false);
+    useFile(e.dataTransfer?.files[0]);
+  });
+
+  document.addEventListener('paste', (e) => {
+    const file = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'));
+    if (file) {
+      e.preventDefault();
+      useFile(file);
+    }
   });
 
   form.addEventListener('submit', async (e) => {
@@ -81,7 +125,14 @@ import { PLATFORMS } from '../../lib/platforms';
       try {
         data.set('photo', await shrink(file), 'photo.jpg');
       } catch {
-        // Some formats (e.g. HEIC on some browsers) can't be decoded; send as-is.
+        // The browser couldn't read it (e.g. HEIC outside Safari). JPEG/PNG/
+        // WebP/GIF can still go up as-is; anything else can't.
+        if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+          status.textContent =
+            'This browser can’t read that photo format. Try Safari, or export it from Photos as a JPEG.';
+          submit.disabled = false;
+          return;
+        }
       }
       const res = await fetch(form.action, { method: 'POST', body: data });
       if (res.redirected) {
