@@ -40,7 +40,7 @@ export const PLATFORMS: Platform[] = [
     descriptionMax: 1500,
     voice:
       'Friendly boutique tone. Brand first in the title. Include size, color, ' +
-      'material and measurements if visible, then condition details.',
+      'material and measurements when known, then condition details.',
     feesCheckedOn: 'unverified',
     feeSummary: 'Flat fee under $15, percentage of the sale above that.',
     estimateFee: (price) => (price < 15 ? 2.95 : price * 0.2),

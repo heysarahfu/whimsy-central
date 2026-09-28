@@ -24,7 +24,7 @@ const Identification = z.object({
   condition: z
     .string()
     .describe('One of: new with tags, new without tags, like new, good, fair, poor'),
-  condition_notes: z.string().describe('Visible wear, flaws, or missing parts'),
+  condition_notes: z.string().describe('Real flaws in the seller\'s voice, or empty if none'),
   confidence: z.string().describe('One of: high, medium, low'),
   price_low: z.number(),
   price_high: z.number(),
@@ -53,12 +53,20 @@ function systemPrompt(): string {
 
 You may get several photos of the same item, such as the front, the back, and a close-up of the label or tag. Read labels and tags carefully: they are the best source for brand, size, and material, so use what they say over guesses from the other photos.
 
-From the photos (and any notes from the seller), identify the item, judge its condition from what is visible, and estimate a realistic used resale price in USD: what it actually sells for secondhand, not its original retail price. If you can't tell the brand or model, say so and lower your confidence rather than guessing.
+From the photos (and any notes from the seller), identify the item, judge its condition, and estimate a realistic used resale price in USD: what it actually sells for secondhand, not its original retail price. If you can't tell the brand or model, say so and lower your confidence rather than guessing.
 
 Then write one listing draft per platform:
 ${rules}
 
-Describe only what can be seen or what the seller told you. Never invent sizes, measurements, materials, or flaws.`;
+How to write the listings:
+- Write as the seller, in first person, as if you own the item and are describing it to a buyer. Never write as someone looking at photos.
+- Never mention the photos or what they do or don't show: no "in the photo", "pictured", "visible", "appears to", "I can't see", "not shown", or "from what I can tell".
+- Ignore anything that comes from how the item was photographed or stored: wrinkles and creases, lighting, color cast, background, hangers, how it's folded or laid out. None of these are flaws.
+- Mention a real flaw (a stain, hole, pilling, missing button, scuff) only if it clearly belongs to the item itself, and state it plainly the way a seller would ("small mark near the hem").
+- If a detail is unknown, such as a size you couldn't read, leave it out rather than explaining why it's missing.
+- Only include details you have from the item, its tags, or the seller's notes. Never invent sizes, measurements, materials, or flaws.
+
+The condition_notes field follows the same rules: real flaws only, in the seller's voice, or an empty string if there are none.`;
 }
 
 export async function identifyItem(
