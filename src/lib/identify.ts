@@ -4,7 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
 import { env } from 'cloudflare:workers';
-import { PLATFORMS, fitToLimits, type PlatformId } from './platforms';
+import { PLATFORMS, SELLER_FACTS, fitToLimits, type PlatformId } from './platforms';
 
 const MODEL = 'claude-opus-5';
 
@@ -65,6 +65,8 @@ How to write the listings:
 - Mention a real flaw (a stain, hole, pilling, missing button, scuff) only if it clearly belongs to the item itself, and state it plainly the way a seller would ("small mark near the hem").
 - If a detail is unknown, such as a size you couldn't read, leave it out rather than explaining why it's missing.
 - Only include details you have from the item, its tags, or the seller's notes. Never invent sizes, measurements, materials, or flaws.
+- Facts about the seller you may mention where they fit naturally: ${SELLER_FACTS.join('; ') || 'none'}.
+- Beyond those, don't make promises or claims about the seller or how they sell (pickup or delivery options, smoke-free or pet-free home, payment methods, shipping speed or packaging, returns, how often it was worn or washed) unless the seller's notes say so. Skip boilerplate like "please review all photos" or "happy to hold for pickup".
 
 The condition_notes field follows the same rules: real flaws only, in the seller's voice, or an empty string if there are none.`;
 }

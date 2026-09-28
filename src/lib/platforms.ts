@@ -3,6 +3,11 @@
 // approximate take-home amount, so re-check them against each platform's
 // seller-fee page now and then and update `feesCheckedOn`.
 
+// True facts about the seller that listings may mention. Add to this list
+// (e.g. "pet-free home", "ships within 2 days") to have them used; anything
+// not here or in an item's notes is kept out of the drafts.
+export const SELLER_FACTS: string[] = ['Smoke-free home'];
+
 export type PlatformId = 'facebook' | 'poshmark' | 'ebay';
 
 export interface Platform {
@@ -26,8 +31,8 @@ export const PLATFORMS: Platform[] = [
     titleMax: 100,
     descriptionMax: 1000,
     voice:
-      'Casual and local. Lead with what it is and the condition, mention pickup, ' +
-      'keep it short. No hashtags.',
+      'Casual and local. Lead with what it is and the condition, and keep it ' +
+      'short. No hashtags.',
     feesCheckedOn: 'unverified',
     feeSummary: 'Free for local pickup; a percentage fee applies to shipped orders.',
     estimateFee: () => 0,
