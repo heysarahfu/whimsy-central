@@ -1,0 +1,47 @@
+---
+import ResaleLayout from '../../layouts/ResaleLayout.astro';
+import { SESSION_COOKIE, checkPassword, createSessionToken, isConfigured } from '../../lib/auth';
+
+let error = '';
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  if (await checkPassword(String(form.get('password') ?? ''))) {
+    const { token, maxAge } = await createSessionToken();
+    Astro.cookies.set(SESSION_COOKIE, token, {
+      httpOnly: true,
+      secure: Astro.url.protocol === 'https:',
+      sameSite: 'strict',
+      path: '/',
+      maxAge,
+    });
+    return Astro.redirect('/resale');
+  }
+  error = 'That password didn’t work.';
+}
+---
+
+<ResaleLayout title="Log in" showNav={false}>
+  <form method="post" class="max-w-sm mx-auto mt-16 space-y-4">
+    <h1 class="font-display text-2xl font-bold">Resale tool</h1>
+    {!isConfigured() && (
+      <p class="text-sm bg-coral/10 text-coral-dark rounded p-3">
+        Login isn’t set up yet: the RESALE_PASSWORD and SESSION_SECRET secrets are missing.
+      </p>
+    )}
+    <label class="block">
+      <span class="text-sm text-ink/70">Password</span>
+      <input
+        type="password"
+        name="password"
+        required
+        autofocus
+        autocomplete="current-password"
+        class="mt-1 w-full rounded border border-ink/20 px-3 py-2"
+      />
+    </label>
+    {error && <p class="text-sm text-coral-dark">{error}</p>}
+    <button class="w-full rounded-full bg-coral hover:bg-coral-dark text-white font-semibold py-2.5">
+      Log in
+    </button>
+  </form>
+</ResaleLayout>

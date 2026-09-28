@@ -1,0 +1,55 @@
+---
+import ResaleLayout from '../../layouts/ResaleLayout.astro';
+import { STATUSES, listItems, money, type Status } from '../../lib/items';
+import { getPlatform } from '../../lib/platforms';
+
+const filter = Astro.url.searchParams.get('status') as Status | null;
+const status = filter && STATUSES.includes(filter) ? filter : undefined;
+const items = await listItems(status);
+
+const sold = items.filter((i) => i.status === 'sold');
+const soldTotal = sold.reduce((sum, i) => sum + (i.sold_price ?? 0), 0);
+---
+
+<ResaleLayout title="History">
+  <h1 class="font-display text-2xl font-bold">History</h1>
+  <p class="text-sm text-ink/70 mt-1">
+    {items.length} item{items.length === 1 ? '' : 's'}
+    {sold.length > 0 && ` · ${sold.length} sold for ${money(soldTotal)} total`}
+  </p>
+
+  <nav class="mt-4 flex flex-wrap gap-2 text-sm">
+    {[undefined, ...STATUSES].map((s) => (
+      <a
+        href={s ? `?status=${s}` : '/resale/history'}
+        class:list={['rounded-full px-3 py-1 border border-ink/15', s === status && 'bg-ink text-cream']}
+      >
+        {s ?? 'all'}
+      </a>
+    ))}
+  </nav>
+
+  {items.length === 0 ? (
+    <p class="mt-8 text-ink/60">Nothing here yet. <a href="/resale" class="text-coral underline">Add an item</a>.</p>
+  ) : (
+    <ul class="mt-4 divide-y divide-ink/10">
+      {items.map((i) => (
+        <li>
+          <a href={`/resale/item/${i.id}`} class="flex items-center gap-3 py-3 hover:bg-white/60">
+            <img src={`/api/resale/photo/${i.photo_key}`} alt="" loading="lazy" class="w-14 h-14 object-cover rounded" />
+            <div class="flex-1 min-w-0">
+              <p class="font-medium truncate">{i.item_name}</p>
+              <p class="text-xs text-ink/60">
+                {[i.brand, getPlatform(i.platform ?? '')?.name, i.created_at.slice(0, 10)].filter(Boolean).join(' · ')}
+              </p>
+            </div>
+            <div class="text-right text-sm">
+              <p class="font-semibold">{money(i.status === 'sold' ? i.sold_price : i.listed_price ?? i.suggested_price)}</p>
+              <p class="text-xs text-ink/60">{i.status}</p>
+            </div>
+          </a>
+        </li>
+      ))}
+    </ul>
+  )}
+</ResaleLayout>

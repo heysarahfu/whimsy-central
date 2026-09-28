@@ -1,0 +1,48 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  showNav?: boolean;
+}
+
+const { title, showNav = true } = Astro.props;
+const path = Astro.url.pathname.replace(/\/$/, '');
+const links = [
+  { href: '/resale', label: 'New item' },
+  { href: '/resale/history', label: 'History' },
+];
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title} · Resale</title>
+  </head>
+  <body class="min-h-screen bg-cream text-ink">
+    {showNav && (
+      <nav class="border-b border-ink/10 bg-white/60">
+        <div class="max-w-3xl mx-auto px-4 py-3 flex items-center gap-4 text-sm">
+          <span class="font-display font-bold">Resale</span>
+          {links.map((l) => (
+            <a
+              href={l.href}
+              class:list={['hover:text-coral', path === l.href && 'text-coral font-semibold']}
+            >
+              {l.label}
+            </a>
+          ))}
+          <form method="post" action="/api/resale/logout" class="ml-auto">
+            <button class="text-ink/60 hover:text-coral">Log out</button>
+          </form>
+        </div>
+      </nav>
+    )}
+    <main class="max-w-3xl mx-auto px-4 py-6">
+      <slot />
+    </main>
+  </body>
+</html>
